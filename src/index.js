@@ -9,11 +9,12 @@ const urllib = require('url');
 const qs = require('querystring');
 const crypto = require('crypto');
 const xmlbodyparser = require('./xmlParser');
+const fetch = require('node-fetch');
 
 /**
  * Constants
  */
-const base_topic = 'https://www.youtube.com/xml/feeds/videos.xml?channel_id=';
+const base_topic = 'https://www.youtube.com/feeds/videos.xml?channel_id=';
 
 /**
  * Represents the YouTube Notifier Class
@@ -179,7 +180,23 @@ class YouTubeNotifier extends EventEmitter {
    * @param {string} channel_id The id of the channel to subscribe or unsubscribe to
    * @param {string} type Either 'subscribe' or 'unsubscribe'
    */
-  _makeRequest(channel_id, type) {
+  async _makeRequest(channel_id, type) {
+    if(!channel_id) return;
+    if(!channel_id.match(/^[a-zA-Z0-9_-]{24}$/)) {
+      channel_id=await fetch(`https://youtube.com/@${channel_id}`)
+        .then(r=>{
+          if(!r.ok){
+            return fetch(`https://youtube.com/c/${channel_id}`).then(r=>r.text())
+          }
+          return r.text()
+        })
+        .then(r=>{
+          const m=r.match(/channel_id=([A-Za-z_0-9]{24})/)
+          if(!m) return null
+          return m[1]
+        });
+    }
+    if(!channel_id) return;
     const topic = base_topic + channel_id;
     const data = {
       'hub.callback': this.hubCallback,
